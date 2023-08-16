@@ -10,6 +10,8 @@ import com.azarenka.domain.Story;
 import com.azarenka.domain.Task;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,6 +42,7 @@ import javax.annotation.PostConstruct;
 @Component
 public class JiraIntegrationService {
 
+    private static Logger LOGGER = LoggerFactory.getLogger(JiraIntegrationService.class);
     @Value("${story.link}")
     private String storyLink;
     @Value("${team.name}")
@@ -62,13 +65,16 @@ public class JiraIntegrationService {
 
     @PostConstruct
     public void init() {
+        LOGGER.info("Init connection...");
         jiraRestClient = jiraConnector.init();
         issueClient = jiraRestClient.getIssueClient();
+        LOGGER.info("Connection established.");
     }
 
     public Set<Story> getStories() {
         Set<Story> stories = new HashSet<>();
         SearchResult searchResult;
+        LOGGER.info("Start to search stories...");
         String query = builder.addProject(projectName).addType("Story").addTypeInActiveSprint().build();
         try {
             searchResult =
@@ -85,6 +91,8 @@ public class JiraIntegrationService {
                     stories.add(story);
                 }
             });
+
+        LOGGER.info("Count stories found={}", stories.size());
         return stories;
     }
 
@@ -128,7 +136,7 @@ public class JiraIntegrationService {
         task.setStatus(subtask.getStatus().getName());
         Issue issue = issueClient.getIssue(subtask.getIssueKey()).get();
         User assignee = issue.getAssignee();
-        task.setOwner(
+        task.setOwner(Objects.nonNull(assignee) &&
             Objects.nonNull(assignee.getDisplayName())
                 ? assignee.getDisplayName()
                 : StringUtils.EMPTY);
